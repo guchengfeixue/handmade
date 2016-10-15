@@ -42,6 +42,8 @@ DEBUGStart(game_assets *Assets, u32 Width, u32 Height) {
         }
 
         BeginRender(DebugState->RenderGroup);
+        DebugState->DebugFont = PushFont(DebugState->RenderGroup, DebugState->FontID);
+        DebugState->DebugFontInfo = GetFontInfo(DebugState->RenderGroup->Assets, DebugState->FontID);
 
         DebugState->Width = (r32)Width;
         DebugState->Height = (r32)Height;
@@ -81,48 +83,70 @@ GetHex(char Char) {
     return Result;
 }
 
+internal rectangle2
+DEBUGTextOp(debug_state *DebugState, debug_text_op Op, v2 P, char *String, v4 Color = V4(1, 1, 1, 1)) {
+    rectangle2 Result = InvertedInfinityRectangle2();
+    if (DebugState && DebugState->DebugFont) {
+        render_group *RenderGroup = DebugState->RenderGroup;
+        loaded_font *Font = DebugState->DebugFont;
+        hha_font *Info = DebugState->DebugFontInfo;
+
+        u32 PrevCodePoint = 0;
+
+        for (char *At = String; *At; ++At) {
+            u32 CodePoint = *At;
+
+            if (At[0] == '\\' && IsHex(At[1]) && IsHex(At[2]) && IsHex(At[3]) && IsHex(At[4])) {
+                CodePoint = (GetHex(At[1]) << 12 |
+                             GetHex(At[2]) <<  8 |
+                             GetHex(At[3]) <<  4 |
+                             GetHex(At[4]) <<  0);
+                At += 4;
+            }
+
+            r32 AdvanceX = DebugState->FontScale * GetHorizontalAdvanceForPair(Info, Font, PrevCodePoint, CodePoint);
+            P.x += AdvanceX;
+
+            if (CodePoint != ' ') {
+                bitmap_id BitmapID = GetBitmapForGlyph(RenderGroup->Assets, Info, Font, CodePoint);
+                hha_bitmap *BitmapInfo = GetBitmapInfo(RenderGroup->Assets, BitmapID);
+
+                r32 BitmapScale = DebugState->FontScale * (r32)BitmapInfo->Dim[1];
+                v3 BitmapOffset = V3(P.x, P.y, 0);
+                if (Op == DEBUGTextOp_DrawText) {
+                    PushBitmap(RenderGroup, BitmapID, BitmapScale, BitmapOffset, Color);
+                } else {
+                    Assert(Op == DEBUGTextOp_SizeText);
+
+                    loaded_bitmap *Bitmap = GetBitmap(RenderGroup->Assets, BitmapID, RenderGroup->GenerationID);
+                    if (Bitmap) {
+                        used_bitmap_dim Dim = GetBitmapDim(RenderGroup, Bitmap, BitmapScale, BitmapOffset);
+                        rectangle2 GlyphDim = RectMinDim(Dim.P.xy, Dim.Size);
+                        Result = Union(Result, GlyphDim);
+                    }
+                }
+            }
+
+            PrevCodePoint = CodePoint;
+        }
+    }
+
+    return Result;
+}
+
 internal void
-DEBUGTextOutAt(v2 P, char *String) {
+DEBUGTextOutAt(v2 P, char *String, v4 Color = V4(1, 1, 1, 1)) {
     debug_state *DebugState = DEBUGGetState();
     if (DebugState) {
         render_group *RenderGroup = DebugState->RenderGroup;
-
-        loaded_font *Font = PushFont(RenderGroup, DebugState->FontID);
-
-        if (Font) {
-            hha_font *Info = GetFontInfo(RenderGroup->Assets, DebugState->FontID);
-            u32 PrevCodePoint = 0;
-
-            for (char *At = String; *At; ++At) {
-                u32 CodePoint = *At;
-
-                if (
-                    At[0] == '\\' &&
-                    IsHex(At[1]) && IsHex(At[2]) &&
-                    IsHex(At[3]) && IsHex(At[4])
-                ) {
-                    CodePoint = (GetHex(At[1]) << 12 |
-                                 GetHex(At[2]) <<  8 |
-                                 GetHex(At[3]) <<  4 |
-                                 GetHex(At[4]) <<  0);
-                    At += 4;
-                }
-
-                r32 AdvanceX = DebugState->FontScale * GetHorizontalAdvanceForPair(Info, Font, PrevCodePoint, CodePoint);
-                P.x += AdvanceX;
-
-                if (CodePoint != ' ') {
-                    bitmap_id BitmapID = GetBitmapForGlyph(RenderGroup->Assets, Info, Font, CodePoint);
-                    hha_bitmap *BitmapInfo = GetBitmapInfo(RenderGroup->Assets, BitmapID);
-
-                    PushBitmap(RenderGroup, BitmapID, DebugState->FontScale * (r32)BitmapInfo->Dim[1], V3(P.x, P.y, 0), V4(1, 1, 1, 1));
-                }
-
-                PrevCodePoint = CodePoint;
-            }
-        } else {
-        }
+        DEBUGTextOp(DebugState, DEBUGTextOp_DrawText, P, String, Color);
     }
+}
+
+internal rectangle2
+DEBUGGetTextSize(debug_state *DebugState, char *String) {
+    rectangle2 Result = DEBUGTextOp(DebugState, DEBUGTextOp_SizeText, V2(0, 0), String);
+    return Result;
 }
 
 internal void
@@ -185,6 +209,47 @@ EndDebugStatistic(debug_statistic *Stat) {
 }
 
 internal void
+DrawDebugMainMenu(debug_state *DebugState, render_group *RenderGroup, v2 MouseP) {
+    char *MenuItems[] = {
+        "Toggle Profile Graph",
+        "Toggle Debug Collation",
+        "Toggle Framerate Counter",
+        "Mark Loop Point",
+        "Toggle Entity Bounds",
+        "Toggle World Chunk Bounds",
+    };
+
+    u32 NewHotMenuIndex = ArrayCount(MenuItems);
+    r32 BestDistanceSq = Real32Maximum;
+
+    r32 MenuRadius = 200.0f;
+    r32 AngleStep = Tau32 / (r32)ArrayCount(MenuItems);
+
+    for (u32 MenuItemIndex = 0; MenuItemIndex < ArrayCount(MenuItems); ++MenuItemIndex) {
+        char *Text = MenuItems[MenuItemIndex];
+
+        v4 ItemColor = V4(1, 1, 1, 1);
+        if (MenuItemIndex == DebugState->HotMenuIndex) {
+            ItemColor = V4(1, 1, 0, 1);
+        }
+
+        r32 Angle = (r32)MenuItemIndex * AngleStep;
+        v2 TextP = DebugState->MenuP + MenuRadius * Arm2(Angle);
+
+        r32 ThisDistanceSq = LengthSq(TextP - MouseP);
+        if (BestDistanceSq > ThisDistanceSq) {
+            NewHotMenuIndex = MenuItemIndex;
+            BestDistanceSq = ThisDistanceSq;
+        }
+
+        rectangle2 TextBounds = DEBUGGetTextSize(DebugState, Text);
+        DEBUGTextOutAt(TextP - 0.5f * GetDim(TextBounds), Text, ItemColor);
+    }
+
+    DebugState->HotMenuIndex = NewHotMenuIndex;
+}
+
+internal void
 DEBUGEnd(game_input *Input, loaded_bitmap *DrawBuffer) {
     TIMED_FUNCTION();
 
@@ -195,15 +260,28 @@ DEBUGEnd(game_input *Input, loaded_bitmap *DrawBuffer) {
         debug_record *HotRecord = 0;
 
         v2 MouseP = V2(Input->MouseX, Input->MouseY);
-        if (WasPressed(Input->MouseButtons[PlatformMouseButton_Right])) {
-            DebugState->Paused = !DebugState->Paused;
+
+        if (Input->MouseButtons[PlatformMouseButton_Right].EndedDown) {
+            if (Input->MouseButtons[PlatformMouseButton_Right].HalfTransitionCount) {
+                DebugState->MenuP = MouseP;
+            }
+            DrawDebugMainMenu(DebugState, RenderGroup, MouseP);
+        } else if (Input->MouseButtons[PlatformMouseButton_Right].HalfTransitionCount) {
+            DrawDebugMainMenu(DebugState, RenderGroup, MouseP);
+            switch (DebugState->HotMenuIndex) {
+                case 0: {
+                    DebugState->ProfileOn = !DebugState->ProfileOn;
+                } break;
+
+                case 1: {
+                    DebugState->Paused = !DebugState->Paused;
+                } break;
+            }
         }
 
-        loaded_font *Font = PushFont(RenderGroup, DebugState->FontID);
-
-        // TODO: Layout / cached font info / etc. for real debug display
+        loaded_font *Font = DebugState->DebugFont;
+        hha_font *Info = DebugState->DebugFontInfo;
         if (Font) {
-            hha_font *Info = GetFontInfo(RenderGroup->Assets, DebugState->FontID);
 
 #if 0
             for (u32 CounterIndex = 0; CounterIndex < DebugState->CounterCount; ++CounterIndex) {
@@ -265,87 +343,89 @@ DEBUGEnd(game_input *Input, loaded_bitmap *DrawBuffer) {
                 DEBUGTextLine(buf);
             }
 
-            Orthographic(DebugState->RenderGroup, (s32)DebugState->Width, (s32)DebugState->Height, 1.0f);
+            if (DebugState->ProfileOn) {
+                Orthographic(DebugState->RenderGroup, (s32)DebugState->Width, (s32)DebugState->Height, 1.0f);
 
-            DebugState->ProfileRect = RectMinMax(V2(50.0f, 50.0f), V2(200.0f, 200.0f));
-            PushRect(DebugState->RenderGroup, DebugState->ProfileRect, 0.0f, V4(0, 0, 0, 0.25f));
+                DebugState->ProfileRect = RectMinMax(V2(50.0f, 50.0f), V2(200.0f, 200.0f));
+                PushRect(DebugState->RenderGroup, DebugState->ProfileRect, 0.0f, V4(0, 0, 0, 0.25f));
 
-            r32 BarSpacing = 4.0f;
-            r32 LaneHeight = 0.0f;
-            u32 LaneCount = DebugState->FrameBarLaneCount;
+                r32 BarSpacing = 4.0f;
+                r32 LaneHeight = 0.0f;
+                u32 LaneCount = DebugState->FrameBarLaneCount;
 
-            u32 MaxFrame = DebugState->FrameCount;
-            if (MaxFrame > 10) {
-                MaxFrame = 10;
-            }
+                u32 MaxFrame = DebugState->FrameCount;
+                if (MaxFrame > 10) {
+                    MaxFrame = 10;
+                }
 
-            if (LaneCount > 0 && MaxFrame > 0) {
-                r32 PixelsPerFramePlusSpacing = GetDim(DebugState->ProfileRect).y / (r32)MaxFrame;
-                r32 PixelsPerFrame = PixelsPerFramePlusSpacing - BarSpacing;
-                LaneHeight = PixelsPerFrame / (r32)LaneCount;
-            }
+                if (LaneCount > 0 && MaxFrame > 0) {
+                    r32 PixelsPerFramePlusSpacing = GetDim(DebugState->ProfileRect).y / (r32)MaxFrame;
+                    r32 PixelsPerFrame = PixelsPerFramePlusSpacing - BarSpacing;
+                    LaneHeight = PixelsPerFrame / (r32)LaneCount;
+                }
 
-            r32 BarHeight = LaneHeight * LaneCount;
-            r32 BarsPlusSpacing = BarHeight + BarSpacing;
-            r32 ChartLeft = DebugState->ProfileRect.Min.x;
-            r32 ChartHeight = BarSpacing * (r32)MaxFrame;
-            r32 ChartWidth = GetDim(DebugState->ProfileRect).x;
-            r32 ChartTop = DebugState->ProfileRect.Max.y;
-            r32 Scale = ChartWidth * DebugState->FrameBarScale;
+                r32 BarHeight = LaneHeight * LaneCount;
+                r32 BarsPlusSpacing = BarHeight + BarSpacing;
+                r32 ChartLeft = DebugState->ProfileRect.Min.x;
+                r32 ChartHeight = BarSpacing * (r32)MaxFrame;
+                r32 ChartWidth = GetDim(DebugState->ProfileRect).x;
+                r32 ChartTop = DebugState->ProfileRect.Max.y;
+                r32 Scale = ChartWidth * DebugState->FrameBarScale;
 
-            v3 Colors[] = {
-                {1, 0, 0},
-                {0, 1, 0},
-                {0, 0, 1},
-                {1, 1, 0},
-                {0, 1, 1},
-                {1, 0, 1},
-                {1, 0.5f, 0},
-                {1, 0, 0.5f},
-                {0.5f, 1, 0},
-                {0, 1, 0.5f},
-                {0.5f, 0, 1},
-                {0, 0.5f, 1},
-            };
+                v3 Colors[] = {
+                    {1, 0, 0},
+                    {0, 1, 0},
+                    {0, 0, 1},
+                    {1, 1, 0},
+                    {0, 1, 1},
+                    {1, 0, 1},
+                    {1, 0.5f, 0},
+                    {1, 0, 0.5f},
+                    {0.5f, 1, 0},
+                    {0, 1, 0.5f},
+                    {0.5f, 0, 1},
+                    {0, 0.5f, 1},
+                };
 
 #if 1
-            for (u32 FrameIndex = 0; FrameIndex < MaxFrame; ++FrameIndex) {
-                debug_frame *Frame = DebugState->Frames + DebugState->FrameCount - (FrameIndex + 1);
-                r32 StackX = ChartLeft;
-                r32 StackY = ChartTop - BarsPlusSpacing * (r32)FrameIndex;
-                r32 PrevTimestampSeconds = 0.0f;
-                for (u32 RegionIndex = 0; RegionIndex < Frame->RegionCount; ++RegionIndex) {
-                    debug_frame_region *Region = Frame->Regions + RegionIndex;
+                for (u32 FrameIndex = 0; FrameIndex < MaxFrame; ++FrameIndex) {
+                    debug_frame *Frame = DebugState->Frames + DebugState->FrameCount - (FrameIndex + 1);
+                    r32 StackX = ChartLeft;
+                    r32 StackY = ChartTop - BarsPlusSpacing * (r32)FrameIndex;
+                    r32 PrevTimestampSeconds = 0.0f;
+                    for (u32 RegionIndex = 0; RegionIndex < Frame->RegionCount; ++RegionIndex) {
+                        debug_frame_region *Region = Frame->Regions + RegionIndex;
 
-                    // v3 Color = Colors[RegionIndex % ArrayCount(Colors)];
-                    v3 Color = Colors[Region->ColorIndex % ArrayCount(Colors)];
-                    r32 ThisMinX = StackX + Scale * Region->MinT;
-                    r32 ThisMaxX = StackX + Scale * Region->MaxT;
+                        // v3 Color = Colors[RegionIndex % ArrayCount(Colors)];
+                        v3 Color = Colors[Region->ColorIndex % ArrayCount(Colors)];
+                        r32 ThisMinX = StackX + Scale * Region->MinT;
+                        r32 ThisMaxX = StackX + Scale * Region->MaxT;
 
-                    rectangle2 RegionRect = RectMinMax(V2(ThisMinX, StackY - LaneHeight * (Region->LaneIndex + 1)),
-                                                       V2(ThisMaxX, StackY - LaneHeight * Region->LaneIndex));
+                        rectangle2 RegionRect = RectMinMax(V2(ThisMinX, StackY - LaneHeight * (Region->LaneIndex + 1)),
+                                                           V2(ThisMaxX, StackY - LaneHeight * Region->LaneIndex));
 
-                    PushRect(RenderGroup, RegionRect, 0.0f, V4(Color, 1));
+                        PushRect(RenderGroup, RegionRect, 0.0f, V4(Color, 1));
 
-                    if (IsInRectangle(RegionRect, MouseP)) {
-                        debug_record *Record = Region->Record;
-                        char buf[512];
-                        snprintf(buf, 512, "%s: %10llucy [%s(%d)]\n",
-                                 Record->BlockName,
-                                 Region->CycleCount,
-                                 Record->FileName,
-                                 Record->LineNumber);
-                        DEBUGTextOutAt(MouseP + V2(0.0f, 10.0f), buf);
+                        if (IsInRectangle(RegionRect, MouseP)) {
+                            debug_record *Record = Region->Record;
+                            char buf[512];
+                            snprintf(buf, 512, "%s: %10llucy [%s(%d)]\n",
+                                     Record->BlockName,
+                                     Region->CycleCount,
+                                     Record->FileName,
+                                     Record->LineNumber);
+                            DEBUGTextOutAt(MouseP + V2(0.0f, 10.0f), buf);
 
-                        HotRecord = Record;
+                            HotRecord = Record;
+                        }
                     }
                 }
-            }
 #endif
 #if 0
-            PushRect(RenderGroup, V3(ChartLeft + 0.5f * ChartWidth, ChartMinY + ChartHeight, 0.0f),
-                     V2(ChartWidth, 1.0f), V4(1, 1, 1, 1));
+                PushRect(RenderGroup, V3(ChartLeft + 0.5f * ChartWidth, ChartMinY + ChartHeight, 0.0f),
+                         V2(ChartWidth, 1.0f), V4(1, 1, 1, 1));
 #endif
+            }
         }
 
         if (WasPressed(Input->MouseButtons[PlatformMouseButton_Left])) {
