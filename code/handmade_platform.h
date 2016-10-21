@@ -1,6 +1,8 @@
 #ifndef HANDMADE_PLATFORM_H
 #define HANDMADE_PLATFORM_H
 
+#include "handmade_config.h"
+
 /*
   NOTE:
 
@@ -167,6 +169,16 @@ typedef struct debug_read_file_result {
     void *Contents;
 } debug_read_file_result;
 
+typedef struct debug_executing_process {
+    u64 OSHandle;
+} debug_executing_process;
+
+typedef struct debug_process_state {
+    b32 StartedSuccessfully;
+    b32 Running;
+    s32 ReturnCode;
+} debug_process_state;
+
 #define DEBUG_PLATFORM_FREE_FILE_MEMORY(name) void name(void *Memory)
 typedef DEBUG_PLATFORM_FREE_FILE_MEMORY(debug_platform_free_file_memory);
 
@@ -175,6 +187,12 @@ typedef DEBUG_PLATFORM_READ_ENTIRE_FILE(debug_platform_read_entire_file);
 
 #define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(name) bool32 name(const char *Filename, uint32 MemorySize, void *Memory)
 typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(debug_platform_write_entire_file);
+
+#define DEBUG_PLATFORM_EXECUTE_SYSTEM_COMMAND(name) debug_executing_process name(char *Path, char *Command, char *CommandLine)
+typedef DEBUG_PLATFORM_EXECUTE_SYSTEM_COMMAND(debug_platform_execute_system_command);
+
+#define DEBUG_PLATFORM_GET_PROCESS_STATE(name) debug_process_state name(debug_executing_process Process)
+typedef DEBUG_PLATFORM_GET_PROCESS_STATE(debug_platform_get_process_state);
 
 // TODO: Actually stoping using this
 extern struct game_memory *DebugGlobalMemory;
@@ -250,7 +268,6 @@ typedef struct game_input {
     game_button_state MouseButtons[PlatformMouseButton_Count];
     r32 MouseX, MouseY, MouseZ;
 
-    b32 ExecutableReloaded;
     r32 dtForFrame;
 
     game_controller_input Controllers[5];
@@ -327,6 +344,8 @@ typedef struct platform_api {
     debug_platform_free_file_memory *DEBUGFreeFileMemory;
     debug_platform_read_entire_file *DEBUGReadEntireFile;
     debug_platform_write_entire_file *DEBUGWriteEntireFile;
+    debug_platform_execute_system_command *DEBUGExecuteSystemCommand;
+    debug_platform_get_process_state *DEBUGGetProcessState;
 } platform_api;
 
 typedef struct game_memory {
@@ -342,6 +361,7 @@ typedef struct game_memory {
     platform_work_queue *HighPriorityQueue;
     platform_work_queue *LowPriorityQueue;
 
+    b32 ExecutableReloaded;
     platform_api PlatformAPI;
 } game_memory;
 
