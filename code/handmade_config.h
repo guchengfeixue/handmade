@@ -1,1 +1,11 @@
 #define DEBUGUI_UseDebugCamera 0 // b32
+#define DEBUGUI_GroundChunkOutlines 0 // b32
+#define DEBUGUI_ParticleTest 0 // b32
+#define DEBUGUI_ParticleGrid 0 // b32
+#define DEBUGUI_UseSpaceOutlines 1 // b32
+#define DEBUGUI_GroundChunkCheckerboards 0 // b32
+#define DEBUGUI_RecomputeGroundChunksOnEXEChange 1 // b32
+#define DEBUGUI_TestWeirdDrawBufferSize 0 // b32
+#define DEBUGUI_FamiliarFollowsHero 0 // b32
+#define DEBUGUI_ShowLightingSamples 0 // b32
+#define DEBUGUI_UseRoomBasedCamera 0 // b32
