@@ -30,6 +30,7 @@ DEBUGStart(game_assets *Assets, u32 Width, u32 Height) {
             DebugState->HighPriorityQueue = DebugGlobalMemory->HighPriorityQueue;
 
             InitializeArena(&DebugState->DebugArena, DebugGlobalMemory->DebugStorageSize - sizeof(debug_state), DebugState + 1);
+            DEBUGCreateVariables(DebugState);
             DebugState->RenderGroup = AllocateRenderGroup(Assets, &DebugState->DebugArena, Megabytes(16), false);
 
             DebugState->Paused = false;
@@ -210,30 +211,48 @@ EndDebugStatistic(debug_statistic *Stat) {
     }
 }
 
-/*
-  #define DEBUGUI_UseDebugCamera 0 // b32
-  #define DEBUGUI_GroundChunkOutlines 1 // b32
-  #define DEBUGUI_ParticleTest 1 // b32
-  #define DEBUGUI_ParticleGrid 1 // b32
-  #define DEBUGUI_UseSpaceOutlines 1 // b32
-  #define DEBUGUI_GroundChunkCheckerboards 1 // b32
-  #define DEBUGUI_RecomputeGroundChunksOnEXEChange 1 // b32
-  #define DEBUGUI_TestWeirdDrawBufferSize 1 // b32
-  #define DEBUGUI_FamiliarFollowsHero 1 // b32
-  #define DEBUGUI_ShowLightingSamples 1 // b32
-  #define DEBUGUI_UseRoomBasedCamera 1 // b32
- */
 internal void
 WriteHandmadeConfig(debug_state *DebugState) {
     char Temp[4096];
     char *At = Temp;
     char *End = Temp + sizeof(Temp);
-    for (u32 DebugVariableIndex = 0; DebugVariableIndex < ArrayCount(DebugVariableList); ++DebugVariableIndex) {
-        debug_variable *Var = DebugVariableList + DebugVariableIndex;
-        At += _snprintf_s(At, End - At, End - At,
-                          "#define %s %d\n",
-                          Var->Name, Var->Value);
+
+    int Depth = 0;
+    debug_variable *Var = DebugState->RootGroup->Group.FirstChild;
+    while (Var) {
+        for (int Indent = 0; Indent < Depth; ++Indent) {
+            *At++ = ' ';
+            *At++ = ' ';
+            *At++ = ' ';
+            *At++ = ' ';
+        }
+        switch (Var->Type) {
+            case DebugVariableType_Boolean: {
+                At += _snprintf_s(At, End - At, End - At,
+                                  "#define DEBUGUI_%s %d\n", Var->Name, Var->Bool32);
+            } break;
+
+            case DebugVariableType_Group: {
+                At += _snprintf_s(At, End - At, End - At, "// %s\n", Var->Name);
+            } break;
+        }
+
+        if (Var->Type == DebugVariableType_Group) {
+            Var = Var->Group.FirstChild;
+            ++Depth;
+        } else {
+            while (Var) {
+                if (Var->Next) {
+                    Var = Var->Next;
+                    break;
+                } else {
+                    Var = Var->Parent;
+                    --Depth;
+                }
+            }
+        }
     }
+
     Platform.DEBUGWriteEntireFile("../code/handmade_config.h", (u32)(At - Temp), Temp);
 
     if (!DebugState->Compiling) {
@@ -244,6 +263,7 @@ WriteHandmadeConfig(debug_state *DebugState) {
 
 internal void
 DrawDebugMainMenu(debug_state *DebugState, render_group *RenderGroup, v2 MouseP) {
+#if 0
     u32 NewHotMenuIndex = ArrayCount(DebugVariableList);
     r32 BestDistanceSq = Real32Maximum;
 
@@ -277,6 +297,7 @@ DrawDebugMainMenu(debug_state *DebugState, render_group *RenderGroup, v2 MouseP)
     } else {
         DebugState->HotMenuIndex = ArrayCount(DebugVariableList);
     }
+#endif
 }
 
 internal void
@@ -291,6 +312,7 @@ DEBUGEnd(game_input *Input, loaded_bitmap *DrawBuffer) {
 
         v2 MouseP = V2(Input->MouseX, Input->MouseY);
 
+#if 0
         if (Input->MouseButtons[PlatformMouseButton_Right].EndedDown) {
             if (Input->MouseButtons[PlatformMouseButton_Right].HalfTransitionCount) {
                 DebugState->MenuP = MouseP;
@@ -304,6 +326,7 @@ DEBUGEnd(game_input *Input, loaded_bitmap *DrawBuffer) {
                 WriteHandmadeConfig(DebugState);
             }
         }
+#endif
 
         if (DebugState->Compiling) {
             debug_process_state State = Platform.DEBUGGetProcessState(DebugState->Compiler);
