@@ -546,6 +546,19 @@ struct timed_block {
 
 #endif
 
+//
+// NOTE: Shared utils
+//
+internal u32
+StringLength(const char *String) {
+    u32 Count = 0;
+    while (*String++) {
+        ++Count;
+    }
+    return Count;
+}
+
+
 #ifdef __cplusplus
 }
 #endif
