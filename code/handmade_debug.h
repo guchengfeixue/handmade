@@ -31,6 +31,11 @@ struct debug_variable_group {
     debug_variable *LastChild;
 };
 
+struct debug_variable_hierarchy {
+    v2 UIP;
+    debug_variable *Group;
+};
+
 struct debug_variable {
     debug_variable_type Type;
     char *Name;
@@ -107,14 +112,22 @@ struct debug_thread {
     debug_thread *Next;
 };
 
+enum debug_interaction {
+    DebugInteraction_None,
+
+    DebugInteraction_NOP,
+
+    DebugInteraction_DragValue,
+    DebugInteraction_ToggleValue,
+    DebugInteraction_TearValue,
+};
+
 struct debug_state {
     b32 Initialized;
 
     platform_work_queue *HighPriorityQueue;
 
     memory_arena DebugArena;
-
-    debug_variable *RootGroup;
 
     render_group *RenderGroup;
     loaded_font *DebugFont;
@@ -126,7 +139,14 @@ struct debug_state {
     v2 MenuP;
     b32 MenuActive;
 
-    debug_variable *HotVariable;
+    debug_variable *RootGroup;
+    debug_variable_hierarchy Hierarchy;
+
+    debug_interaction Interaction;
+    v2 LastMouseP;
+    debug_variable *Hot;
+    debug_variable *InteractingWith;
+    debug_variable *NextHot;
 
     r32 LeftEdge;
     r32 AtY;
