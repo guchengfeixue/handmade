@@ -71,47 +71,40 @@ DEBUGEndVariableGroup(debug_variable_definition_context *Context)
 }
 
 internal void
-DEBUGCreateVariables(debug_state *State) {
-    debug_variable_definition_context Context = {};
-    Context.State = State;
-    Context.Arena = &State->DebugArena;
-    Context.Group = DEBUGBeginVariableGroup(&Context, "Root");
+DEBUGCreateVariables(debug_variable_definition_context *Context) {
+#define DEBUG_VARIABLE_LISTING(Name) DEBUGAddVariable(Context, #Name, DEBUGUI_##Name)
 
-#define DEBUG_VARIABLE_LISTING(Name) DEBUGAddVariable(&Context, #Name, DEBUGUI_##Name)
-
-    DEBUGBeginVariableGroup(&Context, "Ground Chunks");
+    DEBUGBeginVariableGroup(Context, "Ground Chunks");
     DEBUG_VARIABLE_LISTING(GroundChunkOutlines);
     DEBUG_VARIABLE_LISTING(GroundChunkCheckerboards);
     DEBUG_VARIABLE_LISTING(RecomputeGroundChunksOnEXEChange);
-    DEBUGEndVariableGroup(&Context);
+    DEBUGEndVariableGroup(Context);
 
-    DEBUGBeginVariableGroup(&Context, "Particles");
+    DEBUGBeginVariableGroup(Context, "Particles");
     DEBUG_VARIABLE_LISTING(ParticleTest);
     DEBUG_VARIABLE_LISTING(ParticleGrid);
-    DEBUGEndVariableGroup(&Context);
+    DEBUGEndVariableGroup(Context);
 
-    DEBUGBeginVariableGroup(&Context, "Renderer");
+    DEBUGBeginVariableGroup(Context, "Renderer");
     {
         DEBUG_VARIABLE_LISTING(TestWeirdDrawBufferSize);
         DEBUG_VARIABLE_LISTING(ShowLightingSamples);
 
-        DEBUGBeginVariableGroup(&Context, "Camera");
+        DEBUGBeginVariableGroup(Context, "Camera");
         {
             DEBUG_VARIABLE_LISTING(UseDebugCamera);
             DEBUG_VARIABLE_LISTING(DebugCameraDistance);
             DEBUG_VARIABLE_LISTING(UseRoomBasedCamera);
         }
-        DEBUGEndVariableGroup(&Context);
+        DEBUGEndVariableGroup(Context);
 
     }
-    DEBUGEndVariableGroup(&Context);
+    DEBUGEndVariableGroup(Context);
 
     DEBUG_VARIABLE_LISTING(FamiliarFollowsHero);
     DEBUG_VARIABLE_LISTING(UseSpaceOutlines);
     DEBUG_VARIABLE_LISTING(FauxV4);
 #undef DEBUG_VARIABLE_LISTING
-
-    State->RootGroup = Context.Group;
 }
 
 #endif

@@ -558,7 +558,7 @@ Union(rectangle2 A, rectangle2 B) {
 }
 
 inline v2
-GetMinCornor(rectangle2 Rect) {
+GetMinCorner(rectangle2 Rect) {
     v2 Result = Rect.Min;
     return Result;
 }
