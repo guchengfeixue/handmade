@@ -564,7 +564,7 @@ GetMinCorner(rectangle2 Rect) {
 }
 
 inline v2
-GetMaxCornor(rectangle2 Rect) {
+GetMaxCorner(rectangle2 Rect) {
     v2 Result = Rect.Max;
     return Result;
 }
@@ -660,13 +660,13 @@ GetBarycentric(rectangle2 A, v2 P) {
 //
 
 inline v3
-GetMinCornor(rectangle3 Rect) {
+GetMinCorner(rectangle3 Rect) {
     v3 Result = Rect.Min;
     return Result;
 }
 
 inline v3
-GetMaxCornor(rectangle3 Rect) {
+GetMaxCorner(rectangle3 Rect) {
     v3 Result = Rect.Max;
     return Result;
 }

@@ -107,6 +107,17 @@ DEBUGAddVariable(debug_variable_definition_context *Context, char *Name, v4 Valu
     return Ref;
 }
 
+internal debug_variable_reference *
+DEBUGAddVariable(debug_variable_definition_context *Context, char *Name, bitmap_id Value)
+{
+    debug_variable_reference *Ref = DEBUGAddVariable(Context, DebugVariableType_BitmapDisplay, Name);
+    Ref->Var->BitmapDisplay.ID = Value;
+    Ref->Var->BitmapDisplay.Dim = V2(25.0f, 25.0f);
+    Ref->Var->BitmapDisplay.Alpha = true;
+
+    return Ref;
+}
+
 internal void
 DEBUGEndVariableGroup(debug_variable_definition_context *Context)
 {
@@ -150,6 +161,8 @@ DEBUGCreateVariables(debug_variable_definition_context *Context) {
 
     DEBUG_VARIABLE_LISTING(FamiliarFollowsHero);
     DEBUG_VARIABLE_LISTING(UseSpaceOutlines);
+    DEBUG_VARIABLE_LISTING(FauxV4);
+
     DEBUG_VARIABLE_LISTING(FauxV4);
 
     DEBUGAddVariableReference(Context, UseDebugCameraRef->Var);

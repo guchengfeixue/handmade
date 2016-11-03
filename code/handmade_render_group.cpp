@@ -845,11 +845,11 @@ PushRenderElement_(render_group *Group, uint32 Size, render_group_entry_type Typ
 }
 
 inline used_bitmap_dim
-GetBitmapDim(render_group *Group, loaded_bitmap *Bitmap, real32 Height, v3 Offset) {
+GetBitmapDim(render_group *Group, loaded_bitmap *Bitmap, real32 Height, v3 Offset, r32 CAlign) {
     used_bitmap_dim Dim;
 
     Dim.Size = V2(Height * Bitmap->WidthOverHeight, Height);
-    Dim.Align = Hadamard(Bitmap->AlignPercentage, Dim.Size);
+    Dim.Align = CAlign * Hadamard(Bitmap->AlignPercentage, Dim.Size);
     Dim.P = Offset - V3(Dim.Align, 0);
     Dim.Basis = GetRenderEntityBasisP(&Group->Transform, Dim.P);
 
@@ -857,8 +857,8 @@ GetBitmapDim(render_group *Group, loaded_bitmap *Bitmap, real32 Height, v3 Offse
 }
 
 inline void
-PushBitmap(render_group *Group, loaded_bitmap *Bitmap, real32 Height, v3 Offset, v4 Color = V4(1, 1, 1, 1)) {
-    used_bitmap_dim Dim = GetBitmapDim(Group, Bitmap, Height, Offset);
+PushBitmap(render_group *Group, loaded_bitmap *Bitmap, real32 Height, v3 Offset, v4 Color = V4(1, 1, 1, 1), r32 CAlign = 1.0f) {
+    used_bitmap_dim Dim = GetBitmapDim(Group, Bitmap, Height, Offset, CAlign);
     if (Dim.Basis.Valid) {
         render_entry_bitmap *Piece = PushRenderElement(Group, render_entry_bitmap);
         if (Piece) {
@@ -871,7 +871,7 @@ PushBitmap(render_group *Group, loaded_bitmap *Bitmap, real32 Height, v3 Offset,
 }
 
 inline void
-PushBitmap(render_group *Group, bitmap_id ID, real32 Height, v3 Offset, v4 Color = V4(1, 1, 1, 1)) {
+PushBitmap(render_group *Group, bitmap_id ID, real32 Height, v3 Offset, v4 Color = V4(1, 1, 1, 1), r32 CAlign = 1.0) {
     loaded_bitmap *Bitmap = GetBitmap(Group->Assets, ID, Group->GenerationID);
     if (Group->RendersInBackground && !Bitmap) {
         LoadBitmap(Group->Assets, ID, true);
@@ -879,7 +879,7 @@ PushBitmap(render_group *Group, bitmap_id ID, real32 Height, v3 Offset, v4 Color
     }
 
     if (Bitmap) {
-        PushBitmap(Group, Bitmap, Height, Offset, Color);
+        PushBitmap(Group, Bitmap, Height, Offset, Color, CAlign);
     } else {
         Assert(!Group->RendersInBackground);
         LoadBitmap(Group->Assets, ID, false);

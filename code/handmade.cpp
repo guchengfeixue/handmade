@@ -952,8 +952,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
 
     // NOTE: Groundchunk updating
     {
-        world_position MinChunkP = MapIntoChunkSpace(World, GameState->CameraP, GetMinCornor(CameraBoundsInMeters));
-        world_position MaxChunkP = MapIntoChunkSpace(World, GameState->CameraP, GetMaxCornor(CameraBoundsInMeters));
+        world_position MinChunkP = MapIntoChunkSpace(World, GameState->CameraP, GetMinCorner(CameraBoundsInMeters));
+        world_position MaxChunkP = MapIntoChunkSpace(World, GameState->CameraP, GetMaxCorner(CameraBoundsInMeters));
 
         for (int32 ChunkZ = MinChunkP.ChunkZ; ChunkZ <= MaxChunkP.ChunkZ; ++ChunkZ) {
             for (int32 ChunkY = MinChunkP.ChunkY; ChunkY <= MaxChunkP.ChunkY; ++ChunkY) {

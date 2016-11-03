@@ -146,8 +146,8 @@ BeginSim(memory_arena *SimArena, game_state *GameState, world *World, world_posi
     SimRegion->EntityCount = 0;
     SimRegion->Entities = PushArray(SimArena, SimRegion->MaxEntityCount, sim_entity);
 
-    world_position MinChunkP = MapIntoChunkSpace(World, SimRegion->Origin, GetMinCornor(SimRegion->Bounds));
-    world_position MaxChunkP = MapIntoChunkSpace(World, SimRegion->Origin, GetMaxCornor(SimRegion->Bounds));
+    world_position MinChunkP = MapIntoChunkSpace(World, SimRegion->Origin, GetMinCorner(SimRegion->Bounds));
+    world_position MaxChunkP = MapIntoChunkSpace(World, SimRegion->Origin, GetMaxCorner(SimRegion->Bounds));
 
     for (int32 ChunkZ = MinChunkP.ChunkZ; ChunkZ <= MaxChunkP.ChunkZ; ++ChunkZ) {
         for (int32 ChunkY = MinChunkP.ChunkY; ChunkY <= MaxChunkP.ChunkY; ++ChunkY) {
