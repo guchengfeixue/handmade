@@ -97,7 +97,7 @@ AddEntityRaw(game_state *GameState, sim_region *SimRegion, uint32 StorageIndex, 
 inline bool32
 EntityOverlapsRectangle(v3 P, sim_entity_collision_volume Volume, rectangle3 Rect) {
     rectangle3 Grown = AddRadiusTo(Rect, 0.5f * Volume.Dim);
-    bool32 Result = IsInRectange(Grown, P + Volume.OffsetP);
+    bool32 Result = IsInRectangle(Grown, P + Volume.OffsetP);
     return Result;
 }
 
