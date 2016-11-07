@@ -552,6 +552,18 @@ MakePyramidNormalMap(loaded_bitmap *Bitmap, real32 Roughness) {
     }
 }
 
+internal game_assets *
+DEBUGGetGameAssets(game_memory *Memory)
+{
+    game_assets *Assets = 0;
+    transient_state *TranState = (transient_state *) Memory->TransientStorage;
+    if (TranState->IsInitialized) {
+        Assets = TranState->Assets;
+    }
+
+    return Assets;
+}
+
 #if HANDMADE_INTERNAL
 game_memory *DebugGlobalMemory;
 #endif
@@ -808,8 +820,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
 
         TranState->IsInitialized = true;
     }
-
-    DEBUGStart(TranState->Assets, Buffer->Width, Buffer->Height);
 
 #if DEBUGUI_RecomputeGroundChunksOnEXEChange
     // TODO: Re-eanble this? But make sure we don't touch ones in flight??
@@ -1425,8 +1435,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
 
     CheckArena(&GameState->WorldArena);
     CheckArena(&TranState->TranArena);
-
-    DEBUGEnd(Input, DrawBuffer);
 }
 
 extern "C" GAME_GET_SOUND_SAMPLES(GameGetSoundSamples) {
@@ -1436,4 +1444,11 @@ extern "C" GAME_GET_SOUND_SAMPLES(GameGetSoundSamples) {
                         &TranState->TranArena);
 }
 
+#if HANDMADE_INTERNAL
 #include "handmade_debug.cpp"
+#else
+extern "C" DEBUG_GAME_FRAME_END(DEBUGGameFrameEnd)
+{
+    return 0;
+}
+#endif

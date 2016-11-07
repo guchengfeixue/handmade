@@ -117,8 +117,6 @@ struct temporary_memory {
     memory_index Used;
 };
 
-#include "handmade_debug.h"
-
 inline void
 InitializeArena(memory_arena *Arena, memory_index Size, void *Base) {
     Arena->Size = Size;

@@ -93,7 +93,7 @@ Win32BuildEXEPathFileName(win32_state *State, const char *FileName,
                DestCount, Dest);
 }
 
-
+#if HANDMADE_INTERNAL
 DEBUG_PLATFORM_FREE_FILE_MEMORY(DEBUGPlatformFreeFileMemory) {
     if (Memory) {
         VirtualFree(Memory, 0, MEM_RELEASE);
@@ -200,6 +200,7 @@ DEBUG_PLATFORM_GET_PROCESS_STATE(DEBUGPlatformGetProcessState) {
 
     return Result;
 }
+#endif
 
 inline FILETIME
 Win32GetLastWriteTime(const char *Filename) {
@@ -1175,8 +1176,10 @@ PLATFORM_DEALLOCATE_MEMORY(Win32DeallocateMemory) {
     }
 }
 
+#if HANDMADE_INTERNAL
 global_variable debug_table GlobalDebugTable_;
 debug_table *GlobalDebugTable = &GlobalDebugTable_;
+#endif
 
 int CALLBACK
 WinMain(HINSTANCE Instance,
@@ -1342,11 +1345,13 @@ WinMain(HINSTANCE Instance,
             GameMemory.PlatformAPI.AllocateMemory = Win32AllocateMemory;
             GameMemory.PlatformAPI.DeallocateMemory = Win32DeallocateMemory;
 
+#if HANDMADE_INTERNAL
             GameMemory.PlatformAPI.DEBUGFreeFileMemory = DEBUGPlatformFreeFileMemory;
             GameMemory.PlatformAPI.DEBUGReadEntireFile = DEBUGPlatformReadEntireFile;
             GameMemory.PlatformAPI.DEBUGWriteEntireFile = DEBUGPlatformWriteEntireFile;
             GameMemory.PlatformAPI.DEBUGExecuteSystemCommand = DEBUGPlatformExecuteSystemCommand;
             GameMemory.PlatformAPI.DEBUGGetProcessState = DEBUGPlatformGetProcessState;
+#endif
 
             // TODO: Handle various memory footprints (USING SYSTEM METRICS)
 
@@ -1423,7 +1428,9 @@ WinMain(HINSTANCE Instance,
                         Win32CompleteAllWork(&HighPriorityQueue);
                         Win32CompleteAllWork(&LowPriorityQueue);
 
+#if HANDMADE_INTERNAL
                         GlobalDebugTable = &GlobalDebugTable_;
+#endif
                         Win32UnloadGameCode(&Game);
                         Game = Win32LoadGameCode(SourceGameCodeDLLFullpath,
                                                  TempGameCodeDLLFullpath,
@@ -1588,13 +1595,13 @@ WinMain(HINSTANCE Instance,
                     END_BLOCK(InputProcessing);
 
                     BEGIN_BLOCK(GameUpdate);
-                    if (!GlobalPause) {
-                        game_offscreen_buffer Buffer = {};
-                        Buffer.Memory = GlobalBackBuffer.Memory;
-                        Buffer.Width = GlobalBackBuffer.Width;
-                        Buffer.Height = GlobalBackBuffer.Height;
-                        Buffer.Pitch = GlobalBackBuffer.Pitch;
 
+                    game_offscreen_buffer Buffer = {};
+                    Buffer.Memory = GlobalBackBuffer.Memory;
+                    Buffer.Width = GlobalBackBuffer.Width;
+                    Buffer.Height = GlobalBackBuffer.Height;
+                    Buffer.Pitch = GlobalBackBuffer.Pitch;
+                    if (!GlobalPause) {
                         if (Win32State.InputRecordingIndex) {
                             Win32RecordInput(&Win32State, NewInput);
                         }
@@ -1733,6 +1740,22 @@ WinMain(HINSTANCE Instance,
 
                     END_BLOCK(AudioUpdate);
 
+                    //
+                    //
+                    //
+#if HANDMADE_INTERNAL
+                    BEGIN_BLOCK(DebugCollation);
+
+                    uint64 EndCycleCount = __rdtsc();
+
+                    if (Game.DEBUGFrameEnd) {
+                        GlobalDebugTable = Game.DEBUGFrameEnd(&GameMemory, NewInput, &Buffer);
+                    }
+                    GlobalDebugTable_.EventArrayIndex_EventIndex = 0;
+
+                    END_BLOCK(DebugCollation);
+#endif
+
                     // TODO: Leave this off until we have actual vblank support?
 #if 0
                     BEGIN_BLOCK(FramerateWait);
@@ -1783,27 +1806,16 @@ WinMain(HINSTANCE Instance,
 
                     END_BLOCK(FrameDisplay);
 
-#if HANDMADE_INTERNAL
-                    BEGIN_BLOCK(DebugCollation);
-
-                    uint64 EndCycleCount = __rdtsc();
-
-                    if (Game.DEBUGFrameEnd) {
-                        GlobalDebugTable = Game.DEBUGFrameEnd(&GameMemory);
-                    }
-                    GlobalDebugTable_.EventArrayIndex_EventIndex = 0;
-
-                    END_BLOCK(DebugCollation);
-#endif
-
                     LARGE_INTEGER EndCounter = Win32GetWallClock();
                     FRAME_MARKER(Win32GetSecondsElapsed(LastCounter, EndCounter));
                     LastCounter = EndCounter;
 
+#if HANDMADE_INTERNAL
                     if (Game.DEBUGFrameEnd) {
                         // TODO: Move this to a global variable so that there can be timers below this?
                         GlobalDebugTable->RecordCount[TRANSLATION_UNIT_INDEX] = __COUNTER__;
                     }
+#endif
                 }
             } else {
                 // TODO: Logging
