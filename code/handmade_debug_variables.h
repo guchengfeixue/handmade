@@ -1,11 +1,14 @@
 #ifndef HANDMADE_DEBUG_VARIABLES_H
 #define HANDMADE_DEBUG_VARIABLES_H
 
+#define DEBUG_MAX_VARIABLE_STACK_DEPTH 64
+
 struct debug_variable_definition_context {
     debug_state *State;
     memory_arena *Arena;
 
-    debug_variable *Group;
+    u32 GroupDepth;
+    debug_variable *GroupStack[DEBUG_MAX_VARIABLE_STACK_DEPTH];
 };
 
 internal debug_variable *
@@ -18,13 +21,21 @@ DEBUGAddVariable(debug_state *DebugState, debug_variable_type Type, char *Name)
     return Var;
 }
 
+internal void
+DEBUGAddVariableToGroup(debug_state *State, debug_variable *Group, debug_variable *Add)
+{
+    debug_variable_link *Link = PushStruct(&State->DebugArena, debug_variable_link);
+    DLIST_INSERT(&Group->VarGroup, Link);
+}
+
 internal debug_variable *
 DEBUGAddVariable(debug_variable_definition_context *Context, debug_variable_type Type, char *Name)
 {
-    Assert(Context->VarCount < ArrayCount(Context->Vars));
-
     debug_variable *Var = DEBUGAddVariable(Context->State, Type, Name);
-    Context->Vars[Context->VarCount++] = Var;
+    debug_variable *Parent = Context->GroupStack[Context->GroupDepth];
+    if (Parent) {
+        DEBUGAddVariableToGroup(Context->State, Parent, Var);
+    }
 
     return Var;
 }
@@ -32,13 +43,11 @@ DEBUGAddVariable(debug_variable_definition_context *Context, debug_variable_type
 internal debug_variable *
 DEBUGBeginVariableGroup(debug_variable_definition_context *Context, char *Name)
 {
-    debug_variable *Group = DEBUGAddVariable(Context, DebugVariableType_VarArray, Name);
-    Group->VarArray.Count = 0;
+    debug_variable *Group = DEBUGAddVariable(Context, DebugVariableType_VarGroup, Name);
+    DLIST_INIT(&Group->VarGroup);
 
-    xxx - you are here
-
-    u32 VarCount;
-    debug_variable *Vars[64];
+    Assert((Context->GroupDepth + 1) < ArrayCount(Context->GroupStack));
+    Context->GroupStack[++Context->GroupDepth] = Group;
 
     return Group;
 }
@@ -79,15 +88,12 @@ DEBUGAddVariable(debug_variable_definition_context *Context, char *Name, bitmap_
 internal void
 DEBUGEndVariableGroup(debug_variable_definition_context *Context)
 {
-    Assert(Context->Group);
-
-    Context->Group = Context->Group->Parent;
+    Assert(Context->GroupDepth > 0);
+    --Context->GroupDepth;
 }
 
 internal void
 DEBUGCreateVariables(debug_variable_definition_context *Context) {
-    debug_tree_entry *UseDebugCameraRef = 0;
-
 #define DEBUG_VARIABLE_LISTING(Name) DEBUGAddVariable(Context, #Name, DEBUGUI_##Name)
 
     DEBUGBeginVariableGroup(Context, "Ground Chunks");
@@ -108,7 +114,7 @@ DEBUGCreateVariables(debug_variable_definition_context *Context) {
 
         DEBUGBeginVariableGroup(Context, "Camera");
         {
-            UseDebugCameraRef = DEBUG_VARIABLE_LISTING(UseDebugCamera);
+            DEBUG_VARIABLE_LISTING(UseDebugCamera);
             DEBUG_VARIABLE_LISTING(DebugCameraDistance);
             DEBUG_VARIABLE_LISTING(UseRoomBasedCamera);
         }
@@ -122,8 +128,6 @@ DEBUGCreateVariables(debug_variable_definition_context *Context) {
     DEBUG_VARIABLE_LISTING(FauxV4);
 
     DEBUG_VARIABLE_LISTING(FauxV4);
-
-    DEBUGAddVariableReference(Context, UseDebugCameraRef->Var);
 #undef DEBUG_VARIABLE_LISTING
 }
 
