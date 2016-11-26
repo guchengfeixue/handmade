@@ -43,19 +43,24 @@ struct debug_view_inline_block {
 };
 
 enum debug_view_type {
+    DebugViewType_Unknown,
+
     DebugViewType_Basic,
     DebugViewType_InlineBlock,
     DebugViewType_Collapsible,
 };
 
 struct debug_view_collapsible {
-    b32 ExpandedAlwas;
+    b32 ExpandedAlways;
     b32 ExpandedAltView;
 };
 
+struct debug_id {
+    void *Value[2];
+};
+
 struct debug_view {
-    debug_tree *Tree;
-    debug_variable *Var;
+    debug_id ID;
     debug_view *NextInHash;
 
     debug_view_type Type;
@@ -179,6 +184,7 @@ enum debug_interaction_type {
 };
 
 struct debug_interaction {
+    debug_id ID;
     debug_interaction_type Type;
 
     union {
