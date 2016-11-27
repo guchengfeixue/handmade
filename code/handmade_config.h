@@ -20,3 +20,5 @@
             #define DEBUGUI_RecomputeGroundChunksOnEXEChange 0
             #define DEBUGUI_GroundChunkCheckerboards 0
             #define DEBUGUI_GroundChunkOutlines 0
+        // #define DEBUGUI_Entities 
+            #define DEBUGUI_DrawEntityOutlines 1

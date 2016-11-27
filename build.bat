@@ -34,3 +34,5 @@ cl %CommonCompilerFlags% -DTRANSLATION_UNIT_INDEX=0 ..\code\handmade.cpp handmad
 del lock.tmp
 cl %CommonCompilerFlags% -DTRANSLATION_UNIT_INDEX=2 ..\code\win32_handmade.cpp -Fmwin32_handmade.map /link %CommonLinkerFlags%
 popd
+
+echo DONE

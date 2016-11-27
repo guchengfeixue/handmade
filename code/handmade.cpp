@@ -836,6 +836,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
 
     world *World = GameState->World;
 
+#if 0
     //
     // NOTE:
     //
@@ -845,6 +846,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
         MusicVolume.x = 1.0f - MusicVolume.y;
         ChangeVolume(&GameState->AudioState, GameState->Music, 0.01f, MusicVolume);
     }
+#endif
 
     for (size_t ControllerIndex = 0; ControllerIndex < ArrayCount(Input->Controllers); ++ControllerIndex) {
         game_controller_input *Controller = GetController(Input, ControllerIndex);
@@ -920,6 +922,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
     DrawBuffer->Width = 1279;
     DrawBuffer->Height = 719;
 #endif
+
+    v2 MouseP = {Input->MouseX, Input->MouseY};
 
     // TODO: Decide what a pushbuffer size is!
     render_group *RenderGroup = AllocateRenderGroup(TranState->Assets, &TranState->TranArena, Megabytes(4), false);
@@ -1330,6 +1334,27 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
                 default: {
                 } break;
             }
+
+#if DEBUGUI_DrawEntityOutlines
+#if 0
+            v2 MetersMouseP = MouseP * (1.0f / RenderGroup->Transform.MetersToPixels);
+            for (uint32 VolumeIndex = 0; VolumeIndex < Entity->Collision->VolumeCount; ++VolumeIndex) {
+                sim_entity_collision_volume *Volume = Entity->Collision->Volumes + VolumeIndex;
+
+                real32 LocalZ = RenderGroup->Transform.OffsetP.z + Volume->OffsetP.z;
+                v4 OutlineColor = V4(1, 0, 1, 1);
+                v2 LocalMouseP = Unproject(RenderGroup, MetersMouseP, LocalZ) - (RenderGroup->Transform.OffsetP.xy + Volume->OffsetP.xy);
+                PushRect(RenderGroup, V3(LocalMouseP, Volume->OffsetP.z), V2(1.0f, 1.0f), V4(0.0f, 1.0f, 1.0f, 1.0f));
+
+                if ((LocalMouseP.x > -0.5f * Volume->Dim.x) && (LocalMouseP.x < 0.5f * Volume->Dim.x) &&
+                    (LocalMouseP.y > -0.5f * Volume->Dim.y) && (LocalMouseP.y < 0.5f * Volume->Dim.y))
+                {
+                    OutlineColor = V4(1, 1, 0, 1);
+                }
+                PushRectOutline(RenderGroup, Volume->OffsetP - V3(0, 0, 0.5f * Volume->Dim.z), Volume->Dim.xy, OutlineColor, 0.05f);
+            }
+#endif
+#endif
         }
     }
 
@@ -1421,6 +1446,10 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) {
         MapP += YAxis + V2(0.0f, 6.0f);
     }
 #endif
+
+    Orthographic(RenderGroup, DrawBuffer->Width, DrawBuffer->Height, 1.0f);
+
+    PushRectOutline(RenderGroup, V3(MouseP, 0.0f), V2(2.0f, 2.0f));
 
     TiledRenderGroupToOutput(TranState->HighPriorityQueue, RenderGroup, DrawBuffer);
     EndRender(RenderGroup);

@@ -20,8 +20,8 @@
 
 #include "handmade_platform.h"
 
-#include <windows.h>
-#include <xinput.h>
+#include <Windows.h>
+#include <Xinput.h>
 #include <dsound.h>
 
 #include "win32_handmade.h"
