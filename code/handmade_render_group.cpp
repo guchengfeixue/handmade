@@ -967,15 +967,35 @@ CoordinateSystem(render_group *Group, v2 Origin, v2 XAxis, v2 YAxis, v4 Color,
 #endif
 }
 
+inline v3
+Unproject(render_group *Group, v2 PixelsXY)
+{
+    render_transform *Transform = &Group->Transform;
+
+    v2 UnprojectedXY;
+
+    if (Transform->Orthographic) {
+        UnprojectedXY = (1.0f / Transform->MetersToPixels) * (PixelsXY - Transform->ScreenCenter);
+    } else {
+        v2 A = (PixelsXY - Transform->ScreenCenter) * (1.0f / Transform->MetersToPixels);
+        UnprojectedXY = ((Transform->DistanceAboveTarget - Transform->OffsetP.z) / Transform->FocalLength) * A;
+    }
+
+    v3 Result = V3(UnprojectedXY, Transform->OffsetP.z);
+    Result -= Transform->OffsetP;
+
+    return Result;
+}
+
 inline v2
-Unproject(render_group *RenderGroup, v2 ProjectedXY, real32 AtDistanceFromCamera) {
+UnprojectOld(render_group *RenderGroup, v2 ProjectedXY, real32 AtDistanceFromCamera) {
     v2 WorldXY = AtDistanceFromCamera / RenderGroup->Transform.FocalLength * ProjectedXY;
     return WorldXY;
 }
 
 inline rectangle2
 GetCameraRectangleAtDistance(render_group *Group, real32 DistanceFromCamera) {
-    v2 RawXY = Unproject(Group, Group->MonitorHalfDimInMeters, DistanceFromCamera);
+    v2 RawXY = UnprojectOld(Group, Group->MonitorHalfDimInMeters, DistanceFromCamera);
 
     rectangle2 Result = RectCenterHalfDim(V2(0, 0), RawXY);
     return Result;

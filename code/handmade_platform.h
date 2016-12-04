@@ -539,6 +539,13 @@ struct timed_block {
         END_BLOCK_(Counter);
     }
 };
+
+#define DEBUG_BEGIN_HOT_ELEMENT(...)
+#define DEBUG_VALUE(...)
+#define DEBUG_BEGIN_ARRAY(...)
+#define DEBUG_END_ARRAY(...)
+#define DEBUG_END_HOT_ELEMENT(...)
+
 #else
 
 #define TIMED_BLOCK(...)
