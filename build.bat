@@ -20,6 +20,9 @@ pushd build
 
 del *.pdb > NUL 2> NUL
 
+REM Simple preprocessor
+cl %CommonCompilerFlags% -D_CRT_SECURE_NO_WARNINGS ..\code\simple_preprocessor.cpp /link %CommonLinkerFlags%
+
 REM Asset file builder build
 REM cl %CommonCompilerFlags% -DTRANSLATION_UNIT_INDEX=0 -D_CRT_SECURE_NO_WARNINGS ..\code\test_asset_builder.cpp /link %CommonLinkerFlags%
 
