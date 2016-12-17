@@ -22,6 +22,8 @@ char *ReadEntireFileIntoMemoryAndNullTerminate(char *Filename)
 }
 
 enum token_type {
+    Token_Unknown,
+
     Token_OpenParen,
     Token_Colon,
     Token_CloseParen,
@@ -32,8 +34,8 @@ enum token_type {
     Token_OpenBrace,
     Token_CloseBrace,
 
-    Token_Identifier,
     Token_String,
+    Token_Identifier,
 
     Token_EndOfStream,
 };
@@ -41,7 +43,7 @@ enum token_type {
 struct token {
     token_type Type;
 
-    int TextLength;
+    size_t TextLength;
     char *Text;
 };
 
@@ -60,8 +62,39 @@ inline bool IsWhitespace(char C)
 {
     bool Result = ((C == ' ') ||
                    (C == '\t') ||
+                   (C == '\v') ||
+                   (C == '\f') ||
                    IsEndOfLine(C));
 
+    return Result;
+}
+
+inline bool IsAlpha(char C)
+{
+    bool Result = ((C >= 'a' && C <= 'z') ||
+                   (C >= 'A' && C <= 'Z'));
+
+    return Result;
+}
+
+inline bool IsNumber(char C)
+{
+    bool Result = ((C >= '0') && (C <= '9'));
+
+    return Result;
+}
+
+inline bool TokenEquals(token Token, char *Match)
+{
+    char *At = Match;
+
+    for (int Index = 0; Index < Token.TextLength; ++Index, ++At) {
+        if (*At == '\0' || Token.Text[Index] != *At) {
+            return false;
+        }
+    }
+
+    bool Result = *At == 0;
     return Result;
 }
 
@@ -100,8 +133,10 @@ static token GetToken(tokenizer *Tokenizer)
     token Token = {};
     Token.TextLength = 1;
     Token.Text = Tokenizer->At;
+    char C = Tokenizer->At[0];
+    ++Tokenizer->At;
 
-    switch (Tokenizer->At[0]) {
+    switch (C) {
         case '\0': { Token.Type = Token_EndOfStream; } break;
 
         case '(': { Token.Type = Token_OpenParen; } break;
@@ -114,8 +149,9 @@ static token GetToken(tokenizer *Tokenizer)
         case '{': { Token.Type = Token_OpenBrace; } break;
         case '}': { Token.Type = Token_CloseBrace; } break;
 
-        case '""': {
-            ++Tokenizer->At;
+        case '"': {
+            Token.Type = Token_String;
+
             Token.Text = Tokenizer->At;
             while (Tokenizer->At[0] && Tokenizer->At[0] != '"') {
                 if (Tokenizer->At[0] == '\\' && Tokenizer->At[1]) {
@@ -123,15 +159,106 @@ static token GetToken(tokenizer *Tokenizer)
                 }
                 ++Tokenizer->At;
             }
+            Token.TextLength = Tokenizer->At - Token.Text;
+            if (Tokenizer->At[0] == '"') {
+                ++Tokenizer->At;
+            }
         } break;
 
         default: {
-            if (IsAlpha(Tokenizer->At[0])) {
-                ParseIdentifier();
-            } else if (IsNumberic(Tokenizer->At[0])) {
+            if (IsAlpha(C)) {
+                Token.Type = Token_Identifier;
+
+                while (IsAlpha(Tokenizer->At[0]) ||
+                       IsNumber(Tokenizer->At[0]) ||
+                       Tokenizer->At[0] == '_')
+                {
+                    ++Tokenizer->At;
+                }
+
+                Token.TextLength = Tokenizer->At - Token.Text;
+            }
+#if 0
+            else if (IsNumeric(C)) {
                 ParseNumber();
             }
+#endif
+            else {
+                Token.Type = Token_Unknown;
+            }
         } break;
+    }
+
+    return Token;
+}
+
+static bool RequiredToken(tokenizer *Tokenizer, token_type DesiredType)
+{
+    token Token = GetToken(Tokenizer);
+    bool Result = (Token.Type == DesiredType);
+    return Result;
+}
+
+static void ParseIntrospectionParams(tokenizer *Tokenizer)
+{
+    for (;;) {
+        token Token = GetToken(Tokenizer);
+        if (Token.Type == Token_CloseParen || Token.Type == Token_EndOfStream) {
+            break;
+        }
+    }
+}
+
+static void ParseMember(tokenizer *Tokenizer, token MemberTypeToken)
+{
+    bool Parsing = true;
+    bool IsPointer = false;
+    while (Parsing) {
+        token Token = GetToken(Tokenizer);
+        switch (Token.Type) {
+        case Token_Asterisk:
+            IsPointer = true;
+            break;
+        case Token_Identifier:
+            printf("DEBUG_VALUE(%.*s);\n", (int)Token.TextLength, Token.Text);
+            break;
+
+        case Token_Semicolon:
+        case Token_EndOfStream:
+            Parsing = false;
+            break;
+        }
+    }
+}
+
+static void ParseStruct(tokenizer *Tokenizer)
+{
+    token NameToken = GetToken(Tokenizer);
+    if (RequiredToken(Tokenizer, Token_OpenBrace)) {
+        for (;;) {
+            token MemberToken = GetToken(Tokenizer);
+            if (MemberToken.Type == Token_CloseBrace) {
+                break;
+            } else {
+                ParseMember(Tokenizer,  MemberToken);
+            }
+        }
+    }
+}
+
+static void ParseIntrospectable(tokenizer *Tokenizer)
+{
+    if (RequiredToken(Tokenizer, Token_OpenParen)) {
+        ParseIntrospectionParams(Tokenizer);
+
+        token TypeToken = GetToken(Tokenizer);
+        if (TokenEquals(TypeToken, "struct")) {
+            ParseStruct(Tokenizer);
+        } else {
+            fprintf(stderr, "ERROR: Introspection is only supported for structs right now :(\n");
+        }
+    } else {
+        fprintf(stderr, "ERROR: Missing parentheses.\n");
     }
 }
 
@@ -146,12 +273,21 @@ int main(int argc, char *argv[])
     while (Parsing) {
         token Token = GetToken(&Tokenizer);
         switch (Token.Type) {
-            default: {
-                printf("%d: %.*s\n", Token.Type, Token.TextLength, Token.Text);
-            } break;
-
             case Token_EndOfStream: {
                 Parsing = false;
+            } break;
+
+            case Token_Unknown: {
+            } break;
+
+            case Token_Identifier: {
+                if (TokenEquals(Token, "introspect")) {
+                    ParseIntrospectable(&Tokenizer);
+                }
+            } break;
+
+            default: {
+                //printf("%d: %.*s\n", Token.Type, (int)Token.TextLength, Token.Text);
             } break;
         }
     }
