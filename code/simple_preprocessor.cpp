@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <memory.h>
 
 char *ReadEntireFileIntoMemoryAndNullTerminate(char *Filename)
 {
@@ -209,7 +210,7 @@ static void ParseIntrospectionParams(tokenizer *Tokenizer)
     }
 }
 
-static void ParseMember(tokenizer *Tokenizer, token MemberTypeToken)
+static void ParseMember(tokenizer *Tokenizer, token StructTypeToken, token MemberTypeToken)
 {
     bool Parsing = true;
     bool IsPointer = false;
@@ -220,9 +221,13 @@ static void ParseMember(tokenizer *Tokenizer, token MemberTypeToken)
             IsPointer = true;
             break;
         case Token_Identifier:
-            printf("DEBUG_VALUE(%.*s);\n", (int)Token.TextLength, Token.Text);
+            printf("    {%s, MetaType_%.*s, \"%.*s\", (memory_index)(&(((%.*s *)0)->%.*s))},\n",
+                   IsPointer ? "MetaMemberFlag_IsPointer" : "0",
+                   (int)MemberTypeToken.TextLength, MemberTypeToken.Text,
+                   (int)Token.TextLength, Token.Text,
+                   (int)StructTypeToken.TextLength, StructTypeToken.Text,
+                   (int)Token.TextLength, Token.Text);
             break;
-
         case Token_Semicolon:
         case Token_EndOfStream:
             Parsing = false;
@@ -231,18 +236,35 @@ static void ParseMember(tokenizer *Tokenizer, token MemberTypeToken)
     }
 }
 
+struct meta_struct {
+    char *Name;
+    meta_struct *Next;
+};
+
+static meta_struct *FirstMetaStruct;
+
 static void ParseStruct(tokenizer *Tokenizer)
 {
     token NameToken = GetToken(Tokenizer);
     if (RequiredToken(Tokenizer, Token_OpenBrace)) {
+        printf("member_definition MembersOf_%.*s[] = \n", (int)NameToken.TextLength, NameToken.Text);
+        printf("{\n");
         for (;;) {
             token MemberToken = GetToken(Tokenizer);
             if (MemberToken.Type == Token_CloseBrace) {
                 break;
             } else {
-                ParseMember(Tokenizer,  MemberToken);
+                ParseMember(Tokenizer, NameToken, MemberToken);
             }
         }
+        printf("};\n");
+
+        meta_struct *Meta = (meta_struct *)malloc(sizeof(meta_struct));
+        Meta->Name = (char *)malloc(NameToken.TextLength + 1);
+        memcpy(Meta->Name, NameToken.Text, NameToken.TextLength);
+        Meta->Name[NameToken.TextLength] = 0;
+        Meta->Next = FirstMetaStruct;
+        FirstMetaStruct = Meta;
     }
 }
 
@@ -264,32 +286,46 @@ static void ParseIntrospectable(tokenizer *Tokenizer)
 
 int main(int argc, char *argv[])
 {
-    char *FileContents = ReadEntireFileIntoMemoryAndNullTerminate("handmade_sim_region.h");
+    char *FileNames[] = {
+        "handmade_sim_region.h",
+        "handmade_math.h",
+        "handmade_world.h",
+    };
+    for (int FileIndex = 0; FileIndex < sizeof(FileNames) / sizeof(FileNames[0]); ++FileIndex) {
+        char *FileContents = ReadEntireFileIntoMemoryAndNullTerminate(FileNames[FileIndex]);
 
-    tokenizer Tokenizer = {};
-    Tokenizer.At = FileContents;
+        tokenizer Tokenizer = {};
+        Tokenizer.At = FileContents;
 
-    bool Parsing = true;
-    while (Parsing) {
-        token Token = GetToken(&Tokenizer);
-        switch (Token.Type) {
-            case Token_EndOfStream: {
-                Parsing = false;
-            } break;
+        bool Parsing = true;
+        while (Parsing) {
+            token Token = GetToken(&Tokenizer);
+            switch (Token.Type) {
+                case Token_EndOfStream: {
+                    Parsing = false;
+                } break;
 
-            case Token_Unknown: {
-            } break;
+                case Token_Unknown: {
+                } break;
 
-            case Token_Identifier: {
-                if (TokenEquals(Token, "introspect")) {
-                    ParseIntrospectable(&Tokenizer);
-                }
-            } break;
+                case Token_Identifier: {
+                    if (TokenEquals(Token, "introspect")) {
+                        ParseIntrospectable(&Tokenizer);
+                    }
+                } break;
 
-            default: {
-                //printf("%d: %.*s\n", Token.Type, (int)Token.TextLength, Token.Text);
-            } break;
+                default: {
+                    //printf("%d: %.*s\n", Token.Type, (int)Token.TextLength, Token.Text);
+                } break;
+            }
         }
+    }
+
+    printf("#define META_HANDLE_TYPE_DUMP(MemberPtr, NextIndentLevel) \\\n");
+    for (meta_struct *Meta = FirstMetaStruct; Meta; Meta = Meta->Next) {
+        printf("    case MetaType_%s: DEBUGTextLine(Member->Name); DEBUGDumpStruct(ArrayCount(MembersOf_%s), MembersOf_%s, MemberPtr, (NextIndentLevel)); break; %s\n",
+               Meta->Name, Meta->Name, Meta->Name,
+               Meta->Next ? "\\" : "");
     }
 
     return 0;

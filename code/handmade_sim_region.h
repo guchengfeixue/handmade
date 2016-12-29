@@ -46,12 +46,12 @@ enum sim_entity_flags {
     EntityFlag_Simming = (1 << 30),
 };
 
-struct sim_entity_collision_volume {
+introspect(category:"sim_region") struct sim_entity_collision_volume {
     v3 OffsetP;
     v3 Dim;
 };
 
-struct sim_entity_collision_volume_group {
+introspect(category:"sim_region") struct sim_entity_collision_volume_group {
     sim_entity_collision_volume TotalVolume;
 
     // TODO: VolumnCount is always expected to be greater than 0 if the entity
@@ -103,7 +103,7 @@ struct sim_entity_hash {
     uint32 Index;
 };
 
-struct sim_region {
+introspect(category:"regular butter") struct sim_region {
     world *World;
     real32 MaxEntityRadius;
     real32 MaxEntityVelocity;
